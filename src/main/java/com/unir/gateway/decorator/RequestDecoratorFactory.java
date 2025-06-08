@@ -19,21 +19,17 @@ public class RequestDecoratorFactory {
 
 
     /**
-     * This method creates a decorator for the GatewayRequest object.
-     * It checks the HTTP method of the request and creates a different decorator depending on the method.
-     * If the method is GET, it creates a GetRequestDecorator.
-     * If the method is POST, it creates a PostRequestDecorator.
-     * If the method is neither GET nor POST, it throws an IllegalArgumentException.
+     * Creates a universal decorator for the GatewayRequest, compatible with any HTTP method.
+     * If the method is not valid, IllegalArgumentException will be thrown by valueOf.
      *
-     * @param request the GatewayRequest object to be decorated
-     * @return a ServerHttpRequestDecorator that decorates the GatewayRequest object
-     * @throws IllegalArgumentException if the HTTP method of the request is neither GET nor POST
+     * @param request the GatewayRequest object to decorate
+     * @return a universal ServerHttpRequestDecorator
      */
-        public ServerHttpRequestDecorator getDecorator(GatewayRequest request) {
-            return switch (request.getTargetMethod().name().toUpperCase()) {
-                case "GET" -> new GetRequestDecorator(request);
-                case "POST" -> new PostRequestDecorator(request, objectMapper);
-                default -> throw new IllegalArgumentException("Invalid http method");
-            };
-        }
+    public ServerHttpRequestDecorator getDecorator(GatewayRequest request) {
+        return new UniversalRequestDecorator(
+            request,
+            org.springframework.http.HttpMethod.valueOf(request.getTargetMethod().name().toUpperCase()),
+            objectMapper
+        );
+    }
 }

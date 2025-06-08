@@ -1,10 +1,13 @@
 package com.unir.gateway.decorator;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.unir.gateway.model.GatewayRequest;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
+import lombok.SneakyThrows;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
@@ -13,40 +16,28 @@ import reactor.core.publisher.Flux;
 
 import java.net.URI;
 
-
-/**
- * This class is a decorator for the GatewayRequest object for GET requests.
- * It extends the ServerHttpRequestDecorator class and overrides its methods to modify the request.
+ /**
+ * * Universal decorator for any HTTP method, with or without a body.
  */
-@Slf4j
-public class GetRequestDecorator extends ServerHttpRequestDecorator {
+public class UniversalRequestDecorator extends ServerHttpRequestDecorator {
 
     private final GatewayRequest gatewayRequest;
+    private final HttpMethod method;
+    private final ObjectMapper objectMapper;
 
-
-    public GetRequestDecorator(GatewayRequest gatewayRequest) {
+    public UniversalRequestDecorator(GatewayRequest gatewayRequest, HttpMethod method, ObjectMapper objectMapper) {
         super(gatewayRequest.getExchange().getRequest());
         this.gatewayRequest = gatewayRequest;
+        this.method = method;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * This method overrides the getMethod method of the ServerHttpRequestDecorator class.
-     * It returns the HTTP method of the request, which is GET.
-     *
-     * @return the HTTP method of the request
-     */
     @Override
     @NonNull
     public HttpMethod getMethod() {
-        return HttpMethod.GET;
+        return method;
     }
 
-    /**
-     * This method overrides the getURI method of the ServerHttpRequestDecorator class.
-     * It returns the URI of the request, including any query parameters.
-     *
-     * @return the URI of the request
-     */
     @Override
     @NonNull
     public URI getURI() {
@@ -57,27 +48,24 @@ public class GetRequestDecorator extends ServerHttpRequestDecorator {
                 .toUri();
     }
 
-    /**
-     * This method overrides the getHeaders method of the ServerHttpRequestDecorator class.
-     * It returns the headers of the request.
-     *
-     * @return the headers of the request
-     */
     @Override
     @NonNull
     public HttpHeaders getHeaders() {
         return gatewayRequest.getHeaders();
     }
 
-    /**
-     * This method overrides the getBody method of the ServerHttpRequestDecorator class.
-     * Since GET requests do not have a body, it returns an empty Flux of DataBuffers.
-     *
-     * @return an empty Flux of DataBuffers
-     */
     @Override
     @NonNull
+    @SneakyThrows
     public Flux<DataBuffer> getBody() {
+        if (method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH) {
+            DataBufferFactory bufferFactory = new DefaultDataBufferFactory();
+            byte[] bodyData = objectMapper.writeValueAsBytes(gatewayRequest.getBody());
+            DataBuffer buffer = bufferFactory.allocateBuffer(bodyData.length);
+            buffer.write(bodyData);
+            return Flux.just(buffer);
+        }
         return Flux.empty();
     }
 }
+
